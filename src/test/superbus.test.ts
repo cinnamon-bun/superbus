@@ -309,6 +309,8 @@ t.test('bus: mix of sync and async callbacks', async (t: any) => {
     t.done();
 });
 
+// TODO: test sendAndWait without awaiting it
+
 //================================================================================
 // ERROR HANDLING
 

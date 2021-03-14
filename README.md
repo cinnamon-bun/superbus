@@ -204,3 +204,15 @@ For a specific message, the callbacks are always launched in order from most spe
 But note that async callbacks are run in parallel, e.g. we don't wait for one to finish before launching the next one during the sending of a single message.
 
 When multiple listeners have been added to a single channel, they run in the order they were added.
+
+## When exactly do callbacks run?
+
+For `sendLater` they are launched on `process.nextTick`, nonblockingly.
+
+For `sendAndWait`, they are launched synchronously and then awaited using `Promise.all(promises).finally()`.  This means that synchronous callbacks will run inline, blockingly, and async callbacks will be awaited.
+
+If you call `sendAndWait` without awaiting it, the synchronous callbacks should still be run blockingly and will complete before `sendAndWait` exits.  The async callbacks will not be awaited; but I think the parts of those functions before the first `await` will be run blockingly.  TODO: test this more carefully.
+
+## Can callback invocations be coalesced or debounced?
+
+Not by this package, but you can do it yourself using a package like [lodash.debounce](https://www.npmjs.com/package/lodash.debounce) or [debounce](https://www.npmjs.com/package/debounce).
