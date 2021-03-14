@@ -1,7 +1,7 @@
 import t = require('tap');
 //t.runOnly = true;
 
-import { Superbus } from '../superbus';
+import { Superbus } from '../index';
     
 //================================================================================ 
 // UTILS
