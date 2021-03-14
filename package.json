@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "description": "A message bus with a few tricks up its sleeve",
   "author": "Cinnamon <cinnamon_bun_github@fastmail.com>",
-  "homepage": "https://github.com/cinnamon-bun/suberbus",
+  "homepage": "https://github.com/cinnamon-bun/superbus",
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
