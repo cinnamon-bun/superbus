@@ -1,7 +1,11 @@
 import t = require('tap');
 //t.runOnly = true;
 
-import { Superbus } from '../index';
+import {
+    Superbus,
+    SuperbusCallback,
+    SuperbusOpts,
+} from '../index';
     
 //================================================================================ 
 // UTILS
@@ -308,6 +312,102 @@ t.test('bus: mix of sync and async callbacks', async (t: any) => {
 
     t.done();
 });
+
+//================================================================================
+// blocking and nonblocking callbacks
+
+t.test('bus: mix of blocking and nonblocking callbacks', async (t: any) => {
+    let bus = new Superbus();
+    let logs: string[] = [];
+
+    bus.on('hello', async (channel, data) => {
+        logs.push('async-nonblock');
+        await sleep(30);
+        logs.push('async-nonblock2');
+    }, { mode: 'nonblocking' });
+    bus.on('hello', (channel, data) => {
+        logs.push('sync-nonblock');
+    }, { mode: 'nonblocking' });
+
+    bus.on('hello', async (channel, data) => {
+        logs.push('async-block');
+        await sleep(30);
+        logs.push('async-block2');
+    }, { mode: 'blocking' });
+    bus.on('hello', (channel, data) => {
+        logs.push('sync-block');
+    }, { mode: 'blocking' });
+
+    logs = [];
+    logs.push('-start-');
+    await bus.sendAndWait('hello');
+    logs.push('-nextTick-');
+    await sleep(50);
+    logs.push('-end-');
+    //console.log(logs);
+    // 0. -start-
+    // | (launch async-nonblock on next-tick)
+    // | (launch sync-nonblock on next-tick)
+    // | 1. run async-block now
+    // | 2. run sync-block now
+    // | (await async-block)
+    // |     (nextTick)
+    // |     3. async-nonblock runs
+    // |     4. sync-nonblock runs
+    // | 5. async-block2 finishes waiting
+    // | (return from sendAndWait)
+    // 6. (nextTick)
+        // 7. async-nonblock2 finishes waiting
+    // sleep 50
+    // 8. -end-
+    t.same(logs, [
+        '-start-', // 0
+        'async-block',  // 1
+        'sync-block',   // 2
+        'async-nonblock',  // 3
+        'sync-nonblock',   // 4
+        'async-block2',    // 5
+        '-nextTick-',      // 6
+        'async-nonblock2', // 7
+        '-end-',  // 8
+    ], 'await sendAndWait() with all combos of async/sync blocking/nonblocking callbacks');
+
+    logs = [];
+    logs.push('-start-');
+    bus.sendAndWait('hello');  // no await
+    logs.push('-nextTick-');
+    await sleep(50);
+    logs.push('-end-');
+    //console.log(logs);
+    // 0. -start-
+    // | (launch async-nonblock on next-tick)
+    // | (launch sync-nonblock on next-tick)
+    // | 1. run async-block now
+    // | 2. run sync-block now
+    // | return from sendAndWait
+        // 6. (nextTick)
+        // 3. async-nonblock runs
+        // 4. sync-nonblock runs
+    // 5. async-block2 finishes waiting
+    // 7. async-nonblock2 finishes waiting
+    // sleep 50
+    // 8. -end-
+    t.same(logs, [
+        '-start-', // 0
+        'async-block',  // 1
+        'sync-block',   // 2
+        '-nextTick-',      // 6
+        'async-nonblock',  // 3
+        'sync-nonblock',   // 4
+        'async-block2',    // 5
+        'async-nonblock2', // 7
+        '-end-',  // 8
+    ], 'sendAndWait() (no await) with all combos of async/sync blocking/nonblocking callbacks');
+
+
+    t.done();
+});
+
 
 // TODO: test sendAndWait without awaiting it
 
