@@ -69,6 +69,24 @@ myBus.on('something', async (channel, data) => {
 });
 ```
 
+# Subscribe to run a callback only once
+
+Use `once(...)` instead of `on(...)` and your callback will be removed after the first time it runs.
+
+```ts
+let unsub = myBus.once('something', () => {
+    console.log('this only happens once');
+});
+```
+
+You can also pass this as one of the options to `on(...)`:
+
+```ts
+let unsub = myBus.on('something', () => {
+    console.log('this only happens once');
+}, { once: true });
+```
+
 # Sending: special async behavior
 
 There are two ways to send a message:
