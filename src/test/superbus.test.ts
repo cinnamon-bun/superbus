@@ -46,6 +46,37 @@ t.test('bus: basics', async (t: any) => {
     t.done();
 });
 
+t.test('bus: once', async (t: any) => {
+    let bus = new Superbus();
+
+    let logs: string[] = [];
+
+    // b is subscribed first
+    let unsubNonblocking = bus.once('open', (channel) => {
+        logs.push('b-'+channel);
+    }, { mode: 'nonblocking' });
+
+    // then a
+    let unsubBlocking = bus.once('open', (channel) => {
+        logs.push('a-'+channel);
+    }, { mode: 'blocking' });
+
+    logs.push('-start');
+
+    await bus.sendAndWait('open');
+    await bus.sendAndWait('open');
+
+    logs.push('-end');
+
+    // a runs first because it's blocking
+    t.same(logs, '-start a-open b-open -end'.split(' '), 'logs in order, callback was only called once');
+
+    unsubBlocking(); // unsub again; this should not crash
+    unsubNonblocking(); // unsub again; this should not crash
+
+    t.done();
+});
+
 t.test('bus: multi-subscribe with sendAndWait', async (t: any) => {
     let bus = new Superbus();
 

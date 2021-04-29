@@ -20,6 +20,7 @@ export type SuperbusCallback<Ch> = (channel: Ch, data?: any) => void | Promise<v
 
 export interface SuperbusOpts {
     mode: 'blocking' | 'nonblocking',  // default: blocking
+    once?: boolean, // unsubscribe after one event happens.  default: false
 }
 interface CallbackAndOpts<Ch> extends SuperbusOpts {
     callback: SuperbusCallback<Ch>,
@@ -69,6 +70,16 @@ export class Superbus<Ch extends string> {
         this._sep = sep;
     }
 
+    once(channelInput: Ch | Ch[], callback: SuperbusCallback<Ch>, opts: Partial<SuperbusOpts> = {}): Thunk {
+        // Same as on(...), but unsubscribe after the callback runs once.
+        // This is a convenience method, since you can also call on() with { once: true } in the opts.
+        // This still returns an unsubscribe method in case you want to remove the callback
+        // before it runs.
+        // The unsub method is also safe to call after the callback has fired and
+        // removed itself, it just won't do anything.
+        return this.on(channelInput, callback, { ...opts, once: true });
+    }
+
     on(channelInput: Ch | Ch[], callback: SuperbusCallback<Ch>, opts: Partial<SuperbusOpts> = {}): Thunk {
         // Add a listener to one or multiple channels.
         //
@@ -88,7 +99,11 @@ export class Superbus<Ch extends string> {
         // Nonblocking mode will always be nonblocking no matter how
         // the sender sends the message.
         //
+        // Also in opts, you can set { once: true } and the callback will be unsubscribed
+        // after the first time it fires.
+        //
         opts.mode = opts.mode ?? DEFAULT_CB_MODE;
+        opts.once = opts.once ?? false;
         const callbackAndOpts: CallbackAndOpts<Ch> = {
             ...opts as SuperbusOpts,
             callback: callback,
@@ -107,14 +122,19 @@ export class Superbus<Ch extends string> {
         return () => {
             log(`${busdebug} unsubscribe from ${channels}`);
             for (const channel of channels) {
-                const set = this._subs[channel];
-                if (set !== undefined) {
-                    set.delete(callbackAndOpts);
-                    // Prune away channels with no subscribers.
-                    if (set.size === 0) {
-                        delete this._subs[channel];
-                    }
-                }
+                this._unsub(channel, callbackAndOpts);
+            }
+        }
+    }
+    _unsub(channel: Ch, callbackAndOpts: CallbackAndOpts<Ch>): void {
+        // remove a callback from a channel.
+        // this needs to be idempotent (safe to call more than once)
+        const set = this._subs[channel];
+        if (set !== undefined) {
+            set.delete(callbackAndOpts);
+            // Prune away channels with no subscribers.
+            if (set.size === 0) {
+                delete this._subs[channel];
             }
         }
     }
@@ -178,7 +198,12 @@ export class Superbus<Ch extends string> {
             // keep a list of promises from our blocking async callbacks
             const proms : Promise<any>[] = [];
             for (const cbAndOpt of cbsAndOpts) {
-                const { mode, callback } = cbAndOpt;
+                const { mode, callback, once } = cbAndOpt;
+                // remove "once" subscriptions
+                if (once === true) {
+                    this._unsub(channel, cbAndOpt);
+                }
+                // launch callbacks
                 if (mode === 'blocking') {
                     // launch blocking listeners right here
                     try {
@@ -219,6 +244,10 @@ export class Superbus<Ch extends string> {
             const cbsAndOpts = this._subs[subChannel];
             if (cbsAndOpts === undefined || cbsAndOpts.size === 0) { continue; }
             for (const cbAndOpt of cbsAndOpts) {
+                // remove "once" subscriptions
+                if (cbAndOpt.once === true) {
+                    this._unsub(channel, cbAndOpt);
+                }
                 const { callback } = cbAndOpt;
                 queueMicrotask(() => callback(channel, data));
             }
