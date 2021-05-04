@@ -5,6 +5,7 @@
 //let log = console.log;
 const log = (...args: any[]) => {};
 const busdebug =     '        🚌';
+let J = JSON.stringify;
 
 //================================================================================ 
 // CONFIG
@@ -108,11 +109,11 @@ export class Superbus<Ch extends string> {
             ...opts as SuperbusOpts,
             callback: callback,
         }
-        log(`${busdebug} on`, channelInput, JSON.stringify(opts));
-
         const channels: Ch[] = (typeof channelInput === 'string') ? [channelInput] : channelInput;
+
+        log(`${busdebug} on channels:`, J(channels), JSON.stringify(opts));
         for (const channel of channels) {
-            log(`${busdebug} ...on`, channel);
+            log(`${busdebug} ...on one channel`, J(channel));
             // Subscribe to a channel.
             // The callback can be a sync or async function.
             const set = (this._subs[channel] ??= new Set());
@@ -120,7 +121,7 @@ export class Superbus<Ch extends string> {
         }
         // Return an unsubscribe function.
         return () => {
-            log(`${busdebug} unsubscribe from ${channels}`);
+            log(`${busdebug} unsubscribe from ${J(channels)}`);
             for (const channel of channels) {
                 this._unsub(channel, callbackAndOpts);
             }
@@ -157,7 +158,7 @@ export class Superbus<Ch extends string> {
         log(`${busdebug} _expandChannels "${channel}" -> ${JSON.stringify(channels)}`);
         return channels;
     }
-    async sendAndWait(channel: Ch, data?: any): Promise<void> {
+    async sendAndWait(channel: Ch, data?: any): Promise<null | Error[]> {
         // Send a message and wait for all blocking listeners to finish running.
         // Blocking listeners will be launched inline during this function.
         // If they return a promise, we wait for all the promises to resolve
@@ -189,14 +190,17 @@ export class Superbus<Ch extends string> {
         // changed       |               changed       changed
         // banana        |                             banana
 
+        log(`${busdebug} sendAndWait(${J(channel)}).  expanding...`);
         const subChannels = this._expandChannelToListeners(channel);
+        let errors: Error[] = [];
         // send to expanded channels in most-specific to least-specific order
         for (const subChannel of subChannels) {
-            log(`${busdebug} sendAndWait(send ${channel} to ${subChannel} subscription, ${data})`);
+            log(`${busdebug} ...sendAndWait: send ${J(channel)} to subchannel ${J(subChannel)} subscription, data = ${data})`);
             const cbsAndOpts = this._subs[subChannel];
             if (cbsAndOpts === undefined || cbsAndOpts.size === 0) { continue; }
             // keep a list of promises from our blocking async callbacks
             const proms : Promise<any>[] = [];
+
             for (const cbAndOpt of cbsAndOpts) {
                 const { mode, callback, once } = cbAndOpt;
                 // remove "once" subscriptions
@@ -211,9 +215,9 @@ export class Superbus<Ch extends string> {
                         if (prom instanceof Promise) {
                             proms.push(prom);
                         }
-                    } catch (e) {
+                    } catch (err) {
                         log(`${busdebug} error while launching blocking callback`);
-                        console.error(e);
+                        errors.push(err);
                     }
                 } else if (mode === 'nonblocking') {
                     // launch nonblocking listeners later
@@ -221,15 +225,32 @@ export class Superbus<Ch extends string> {
                 }
             }
             // wait for all the promises to finish
-            //await Promise.allSettled(proms);
+            let promResults = await Promise.allSettled(proms);
+
+            // collect errors from the promises
+            for (let promResult of promResults) {
+                if (promResult.status === 'rejected') {
+                    let err = (promResult as any).reason;
+                    errors.push(err);
+                }
+            }
+
+            /*
             for (const prom of proms) {
                 try {
                     await prom;
-                } catch (e) {
+                } catch (err) {
                     log(`${busdebug} error while awaiting promise`);
-                    console.error(e);
+                    console.error('the async error is', err);
                 }
             }
+            */
+        }
+        // return an array of errors, or null if no errors
+        if (errors.length >= 1) {
+            return errors;
+        } else {
+            return null;
         }
     }
     sendLater(channel: Ch, data?: any): void {

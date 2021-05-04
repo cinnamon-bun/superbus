@@ -452,65 +452,86 @@ t.test('bus: mix of blocking and nonblocking callbacks', async (t: any) => {
 //================================================================================
 // ERROR HANDLING
 
-t.skip('bus: error thrown from sync callback and await sendAndWait', async (t: any) => {
+t.test('bus: error thrown from sync callback and await sendAndWait', async (t: any) => {
     let bus = new Superbus();
-    bus.on('hello', (channel, data) => { throw new Error('oops1'); });
+    // add a safe listener which does not throw an exception
+    bus.on('hello', (channel, data) => { });
+    let errors = await bus.sendAndWait('hello');
+    t.same(errors, null, 'errors should be null');
 
-    let errorHappened = false;
-    try {
-        // without await, this causes an unhandled promise rejection
-        await bus.sendAndWait('hello');
-    } catch (e) {
-        errorHappened = true;
-        t.same(e.message, 'oops1', 'error is thrown from sync callback using sendAndWait');
+    // add a subscriber which throws an error
+    bus.on('hello', (channel, data) => { throw new Error('oopsBlockingSync'); });
+    bus.on('hello', (channel, data) => { throw new Error('oopsBlockingSync'); });
+    errors = await bus.sendAndWait('hello');
+    if (errors === null) {
+        t.ok(false, 'errors should not be null');
+    } else {
+        t.same(errors.length, 2, 'should have collected two errors');
+        t.same([errors[0].name, errors[0].message], ['Error', 'oopsBlockingSync'], 'it was the expected error');
     }
-    t.same(errorHappened, true, 'error propagates to sendAndWait');
 
     t.done();
 });
 
-t.skip('bus: error thrown from async callback and await sendAndWait', async (t: any) => {
+t.test('bus: error thrown from async callback and await sendAndWait', async (t: any) => {
     let bus = new Superbus();
-    bus.on('hello', async (channel, data) => { throw new Error('oops1'); });
+    // add a safe listener which does not throw an exception
+    bus.on('hello', async (channel, data) => { });
+    let errors = await bus.sendAndWait('hello');
+    t.same(errors, null, 'errors should be null');
 
-    let errorHappened = false;
-    try {
-        // without await, this causes an unhandled promise rejection
-        await bus.sendAndWait('hello');
-    } catch (e) {
-        errorHappened = true;
-        t.same(e.message, 'oops1', 'error is thrown from async callback using sendAndWait');
+    // add a subscriber which throws an error
+    bus.on('hello', async (channel, data) => { throw new Error('oopsBlockingAsync'); });
+    bus.on('hello', async (channel, data) => { throw new Error('oopsBlockingAsync'); });
+    errors = await bus.sendAndWait('hello');
+    if (errors === null) {
+        t.ok(false, 'errors should not be null');
+    } else {
+        t.same(errors.length, 2, 'should have collected two errors');
+        t.same([errors[0].name, errors[0].message], ['Error', 'oopsBlockingAsync'], 'it was the expected error');
     }
-    t.same(errorHappened, true, 'error propagates to sendAndWait');
 
     t.done();
 });
 
-t.skip('bus: error thrown from sync callback and sendAndWait', async (t: any) => {
+//================================================================================
+// UNHANDLED PROMISE REJECTIONS
+// (how to test for these?)
+
+t.skip('bus: error thrown from nonblocking sync callback and await sendAndWait', async (t: any) => {
     // this causes an unhandledRejection which I don't know how to test for
-
     let bus = new Superbus();
-    bus.on('hello', (channel, data) => { throw new Error('oops1'); });
-
+    bus.on('hello', (channel, data) => { throw new Error('oops1'); }, { mode: 'nonblocking' });
+    let errors = await bus.sendAndWait('hello');
+    await sleep(50);
+    t.done();
+});
+t.skip('bus: error thrown from nonblocking async callback and await sendAndWait', async (t: any) => {
+    // this causes an unhandledRejection which I don't know how to test for
+    let bus = new Superbus();
+    bus.on('hello', async (channel, data) => { throw new Error('oops2'); }, { mode: 'nonblocking' });
+    let errors = await bus.sendAndWait('hello');
+    await sleep(50);
+    t.done();
+});
+t.skip('bus: error thrown from sync callback and sendLater', async (t: any) => {
+    // this causes an unhandledRejection which I don't know how to test for
+    let bus = new Superbus();
+    bus.on('hello', (channel, data) => { throw new Error('oops3'); });
     bus.sendLater('hello');
     await sleep(50);
-
     t.done();
 });
-
-t.skip('bus: error thrown from async callback and sendAndWait', async (t: any) => {
+t.skip('bus: error thrown from async callback and sendLater', async (t: any) => {
     // this causes an unhandledRejection which I don't know how to test for
-
     let bus = new Superbus();
-    bus.on('hello', async (channel, data) => { throw new Error('oops1'); });
-
+    bus.on('hello', async (channel, data) => { throw new Error('oops4'); });
     bus.sendLater('hello');
     await sleep(50);
-
     t.done();
 });
 
-t.skip('bus: error in the middle of several callbacks', async (t: any) => {
+t.test('bus: error in the middle of several callbacks', async (t: any) => {
     let bus = new Superbus();
 
     let successLog: string[] = [];
@@ -533,16 +554,11 @@ t.skip('bus: error in the middle of several callbacks', async (t: any) => {
         successLog.push('success4');
     });
 
-    let errorHappened = false;
-    try {
-        await bus.sendAndWait('hello');
-    } catch (e) {
-        errorHappened = true;
-        t.same(e.message, 'oops1', 'first error is thrown');
-    }
-    t.same(errorHappened, true, 'error propagates to sendAndWait');
+    let errors = await bus.sendAndWait('hello');
+    t.notSame(errors, null, 'some errors were thrown');
+    t.same(errors?.length, 2, 'two errors were thrown');
 
-    t.same(successLog, 'success1 success2 success3 success4'.split(' '), 'all callbacks run even if some have errors');
+    t.same(successLog, 'success1 success2 success3 success4'.split(' '), 'all callbacks run even if some in the middle have errors');
 
     t.done();
 });

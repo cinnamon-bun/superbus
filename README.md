@@ -131,7 +131,7 @@ let foo = async () => {
 The blocking callbacks that are async are run in parallel and we wait for them to all
 to finish or throw errors before returning from `sendAndWait`.
 
-Don't forget the `await` on sendAndWait.  If you do, only the synchronous callbacks will finish running before your code continues.  The async callbacks will be started but won't finish until later.
+**NOTE!**  Don't forget the `await` on sendAndWait.  If you do, only the synchronous callbacks will finish running before your code continues.  The async callbacks will be started but won't finish until later.
 
 # Message specificity, `'*'` listeners, and special handling of messages with ids
 
@@ -231,18 +231,43 @@ There is no way to narrow down the type of `data` based on the channel name, yet
 
 # Error handling
 
-Superbus tries to internally catch all errors from listener callbacks and swallow them so they don't break the sender's code.  These errors will be logged with `console.error`.
+Errors thrown from listeners can happen in two ways, and both are a little awkward.
 
-Some listener callback errors will become unhandled promise rejections.
+## TL;DR about errors
+
+Try to catch errors and do something useful about them from inside your listener callback functions, because it's awkward for the error to be thrown out of your listener and into the complex machinery of superbus.  Superbus does its best, but it's weird.
+
+## Errors from listeners we're blocking on
+
+These are functions with `{ mode: 'blocking' }` (the default) AND when an event is sent using `await sendAndWait('hello')`.
+
+These functions might be either sync or async.
+
+Sending an event can run many listener functions.  We don't want one error to stop all the other listeners.
+
+So instead of throwing errors from the listeners, we gather them into an array and return it like so:
+
+`let errors = await sendAndWait('hello');`
+
+`errors` will be `null` if there were no errors, or `Error[]` if there were some errors.  The errors are not thrown; it's up to your code to do that.  How would superbus know which one to throw, since it can only throw one?
+
+## Errors from listeners we're running later
+
+These are functions with `{ mode: 'nonblocking' }` OR when an event is sent using `sentLater('hello')`.
+
+These functions might be either sync or async.
+
+These functions are run using `setImmediate`, so they are executed outside of our regular scope.  We can't get their errors and do anything with them.  They're off on their own now.
+
+Errors thrown by these listener functions will become unhandled exceptions (for sync functions) or unhandled rejections (for async functions).
 
 # FAQ
 
 ## Can I send a message from inside a listener callback?
 
-I have not tried this, but I think it's safe.
+I have not tried this, but I think it's safe.  (TODO: test it.)
 
 In blocking mode, the original outer `sendAndWait` will not complete until the inner, nested `sendAndWait` completes.
-
 
 ## There should be a generic type parameter for the data payload too.
 
