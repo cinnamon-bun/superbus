@@ -4,6 +4,11 @@ A message bus with a few tricks up its sleeve.
 
 You can send **messages** to **channels**, and each message can have a data payload.  You can subscribe to a channel with a listener callback.
 
+## Vocabulary 
+
+* listen, subscribe: same meaning -- hook up a callback to run when an event is sent.
+* `setImmediate` -- everywhere we mention this function we actually use a frankenstein version that works in browsers and node: 10% of the time it uses `setTimeout(cb, 0)` and 90% of the time it uses `queueMicrotask` (e.g. `process.nextTick`).  This lets us get our work done quickly and still occasionally give the browser or node event loop a chance to do some other things.
+
 ## Feature: channel specificity
 
 Channel names can have different levels of specificity, and subscribers are triggered by their channel and anything more specific.
