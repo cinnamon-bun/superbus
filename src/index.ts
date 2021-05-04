@@ -63,6 +63,24 @@ interface CallbackAndOpts<Ch> extends SuperbusOpts {
 
 type OrStar<Ch> = Ch | '*';
 
+// a setImmediate polyfill based on https://github.com/feross/queue-microtask/blob/master/index.js
+
+const SET_TIMEOUT_FRACTION = 0.5;  // this fraction of the time, use setTimeout.  otherwise queueMicrotask.
+const PR = Promise.resolve();
+const setImmed = (cb: () => void): void => {
+    if (Math.random() < SET_TIMEOUT_FRACTION) {
+        setTimeout(cb, 0);
+    } else {
+        if (queueMicrotask !== undefined) {
+            queueMicrotask(cb);
+        } else {
+            PR.then(cb).catch(err => {
+                setTimeout(err => { throw err }, 0)
+            });
+        }
+    }
+}
+
 export class Superbus<Ch extends string> {
     // For each channel, we have a Set of callbacks.
     _subs: Record<string, Set<CallbackAndOpts<OrStar<Ch>>>> = {};
@@ -232,7 +250,7 @@ export class Superbus<Ch extends string> {
                     }
                 } else if (mode === 'nonblocking') {
                     // launch nonblocking listeners later
-                    setImmediate(() => callback(channel, data));
+                    setImmed(() => callback(channel, data));
                 }
             }
             // wait for all the promises to finish
@@ -281,7 +299,7 @@ export class Superbus<Ch extends string> {
                     this._unsub(channel, cbAndOpt);
                 }
                 const { callback } = cbAndOpt;
-                setImmediate(() => callback(channel, data));
+                setImmed(() => callback(channel, data));
             }
         }
     }
