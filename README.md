@@ -8,6 +8,13 @@ You can send **messages** to **channels**, and each message can have a data payl
 
 Channel names can have different levels of specificity, and subscribers are triggered by their channel and anything more specific.
 
+Example: sending to `deleted:abc` will trigger listeners for:
+* `deleted:abc`
+* `deleted`
+* `*`
+
+...in that order.
+
 > Why this channel name thing?
 >
 > This is useful when you have React components observing items in a collection.  You might want the parent component to react to `added` and `deleted`, but the child components to react to certain items by their id: `changed:abcde`
@@ -136,16 +143,20 @@ to finish or throw errors before returning from `sendAndWait`.
 # Message specificity, `'*'` listeners, and special handling of messages with ids
 
 You can send messages with two levels of specificity:
+
 ```
 // send to...
 
 'changed:abc'  // more specific, includes an id
 'changed'      // less specific
+
+// (You can't send to the '*' channel.)
 ```
 
 The part after the colon is called the "id".  It can be used, for example, to describe which object changed.
 
 And you can listen with three levels of specificity:
+
 ```
 // listeners      triggered by
 
@@ -153,6 +164,8 @@ And you can listen with three levels of specificity:
 'changed'      // 'changed', 'changed:abc', 'changed:xyz', ...
 '*'            //  anything
 ```
+
+Listeners run in the order above, from most specific to least specific.
 
 ## Examples
 
@@ -178,8 +191,10 @@ myBus.on('*', () => {});            // any message at all
 Similarly, sending a regular "changed" message with no ID will trigger these listeners:
 
 ```ts
-myBus.on('changed', () => {});      // when anything is changed
-myBus.on('*', () => {});            // any message at all
+myBus.sendLater('changed', myData);  // just 'changed' with no id
+
+myBus.on('changed', () => {});   // any 'changed' or 'changed:...' message
+myBus.on('*', () => {});         // any message at all
 ```
 
 In other words, listeners will hear the channel they signed up for and any
@@ -189,7 +204,7 @@ So one sent message will trigger either 3 or 2 channels depending on if it has a
 
 The arguments of the listener callback are `(channel, data)`.  Channel will be the most specific channel name, not the channel name that was subscribed to.  So, for example, a `'*'` listener can still tell what kinds of messages it's hearing.
 
-## Constructing a channel name with an id
+## Constructing a channel name with an id -- only one layer deep
 
 Only the first colon is detected:
 

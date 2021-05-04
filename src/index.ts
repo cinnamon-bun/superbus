@@ -61,9 +61,11 @@ interface CallbackAndOpts<Ch> extends SuperbusOpts {
 //     on('hello', async () => {}, { mode: 'nonblocking' });
 //     await sendAndWait('hello');
 
+type OrStar<Ch> = Ch | '*';
+
 export class Superbus<Ch extends string> {
     // For each channel, we have a Set of callbacks.
-    _subs: Record<string, Set<CallbackAndOpts<Ch>>> = {};
+    _subs: Record<string, Set<CallbackAndOpts<OrStar<Ch>>>> = {};
     // Character used to separate channel name from id, like 'changed:123'
     _sep: string;
 
@@ -71,7 +73,7 @@ export class Superbus<Ch extends string> {
         this._sep = sep;
     }
 
-    once(channelInput: Ch | Ch[], callback: SuperbusCallback<Ch>, opts: Partial<SuperbusOpts> = {}): Thunk {
+    once(channelInput: OrStar<Ch> | OrStar<Ch>[], callback: SuperbusCallback<OrStar<Ch>>, opts: Partial<SuperbusOpts> = {}): Thunk {
         // Same as on(...), but unsubscribe after the callback runs once.
         // This is a convenience method, since you can also call on() with { once: true } in the opts.
         // This still returns an unsubscribe method in case you want to remove the callback
@@ -81,7 +83,7 @@ export class Superbus<Ch extends string> {
         return this.on(channelInput, callback, { ...opts, once: true });
     }
 
-    on(channelInput: Ch | Ch[], callback: SuperbusCallback<Ch>, opts: Partial<SuperbusOpts> = {}): Thunk {
+    on(channelInput: OrStar<Ch> | OrStar<Ch>[], callback: SuperbusCallback<OrStar<Ch>>, opts: Partial<SuperbusOpts> = {}): Thunk {
         // Add a listener to one or multiple channels.
         //
         // Multiple channels in an array are meant to be used for
@@ -105,11 +107,13 @@ export class Superbus<Ch extends string> {
         //
         opts.mode = opts.mode ?? DEFAULT_CB_MODE;
         opts.once = opts.once ?? false;
-        const callbackAndOpts: CallbackAndOpts<Ch> = {
+        const callbackAndOpts: CallbackAndOpts<OrStar<Ch>> = {
             ...opts as SuperbusOpts,
             callback: callback,
         }
-        const channels: Ch[] = (typeof channelInput === 'string') ? [channelInput] : channelInput;
+
+        // channels subscribed to
+        const channels: OrStar<Ch>[] = (typeof channelInput === 'string') ? [channelInput] : channelInput;
 
         log(`${busdebug} on channels:`, J(channels), JSON.stringify(opts));
         for (const channel of channels) {
@@ -127,7 +131,7 @@ export class Superbus<Ch extends string> {
             }
         }
     }
-    _unsub(channel: Ch, callbackAndOpts: CallbackAndOpts<Ch>): void {
+    _unsub(channel: OrStar<Ch>, callbackAndOpts: CallbackAndOpts<OrStar<Ch>>): void {
         // remove a callback from a channel.
         // this needs to be idempotent (safe to call more than once)
         const set = this._subs[channel];
@@ -179,6 +183,8 @@ export class Superbus<Ch extends string> {
 
         // '*' listeners are called for messages on every channel.
 
+        // You can't send to '*'.
+
         // send this   --> to these listeners:
 
         // message sent: | listeners get...
@@ -191,6 +197,11 @@ export class Superbus<Ch extends string> {
         // banana        |                             banana
 
         log(`${busdebug} sendAndWait(${J(channel)}).  expanding...`);
+
+        if (channel === '*') {
+            throw new Error("Superbus usage error: You can't send to the channel '*', you can only listen to it");
+        }
+
         const subChannels = this._expandChannelToListeners(channel);
         let errors: Error[] = [];
         // send to expanded channels in most-specific to least-specific order

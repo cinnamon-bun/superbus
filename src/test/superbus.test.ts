@@ -3,8 +3,6 @@ import t = require('tap');
 
 import {
     Superbus,
-    SuperbusCallback,
-    SuperbusOpts,
 } from '../index';
     
 //================================================================================ 
@@ -15,9 +13,25 @@ let log = (...args: any[]) => {};
 let handlerdebug = '   🖐';
 
 let sleep = (ms: number) =>
-    new Promise((res, rej) => setTimeout(res, ms));
+    new Promise((res, rej) =>
+        setTimeout(res, ms));
 
 //================================================================================ 
+
+t.test('bus: type inference for * channels', async (t: any) => {
+
+    type Channels = 'open' | 'close';  // '*' is not included here...
+
+    let bus = new Superbus<Channels>();
+
+    bus.on('open', (channel) => {});
+    bus.on('*', (channel) => {});  // but we can still subscribe to '*'.
+
+    // this should be a type error on the '*'
+    //await bus.sendAndWait('*');
+
+    t.done();
+});
 
 t.test('bus: basics', async (t: any) => {
     let bus = new Superbus();
