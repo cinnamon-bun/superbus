@@ -69,7 +69,14 @@ t.test('bus: once', async (t: any) => {
     logs.push('-end');
 
     // a runs first because it's blocking
-    t.same(logs, '-start a-open b-open -end'.split(' '), 'logs in order, callback was only called once');
+    // b hasn't run yet because it's waiting for setImmediate
+    t.same(logs, '-start a-open -end'.split(' '), 'logs in order, callback was only called once, only blocking callback happened so far');
+
+    // give time for setImmediate things to happen
+    await sleep(20);
+
+    // now b has had a chance to run
+    t.same(logs, '-start a-open -end b-open'.split(' '), 'logs in order, callback was only called once, now nonblocking callback also happened');
 
     unsubBlocking(); // unsub again; this should not crash
     unsubNonblocking(); // unsub again; this should not crash

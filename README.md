@@ -18,7 +18,7 @@ Channel names can have different levels of specificity, and subscribers are trig
 
 Senders and listeners can choose to be in "blocking mode".  If both are in blocking mode, then sending a message will block until all the listeners have finished running, even if they are async callbacks.
 
-If either the sender or the listener are in nonblocking mode, the listener callbacks will run on `nextTick` (or the browser equivalent).
+If either the sender or the listener are in nonblocking mode, the listener callbacks will run with `setImmediate`.
 
 > Why this blocking thing?
 >
@@ -103,13 +103,13 @@ The `data` argument is optional.
 
 ## Sending nonblockingly
 
-`sendLater` sends your message at `nextTick` or the browser equivalent:
+`sendLater` sends your message with `setImmediate` or the browser equivalent:
 
 ```ts
 let foo = () => {
     myBus.sendLater('hello');
     console.log('The listeners have not run yet.');
-    console.log('They will run on nextTick.');
+    console.log('They will run later when setImmediate fires.');
 }
 ```
 
@@ -117,13 +117,14 @@ let foo = () => {
 
 `sendAndWait` runs the blocking listener callbacks right away and waits for them all to finish, even the async ones.  Make sure to `await` it.
 
-The listeners that were registered as `nonblocking` will be run nonblockingly on `nextTick`.  Only when the sender AND the listener want to block, will the blocking behaviour occur.
+The listeners that were registered as `nonblocking` will be run nonblockingly with `setImmediate`.  Only when the sender AND the listener want to block, will the blocking behaviour occur.
 
 ```ts
 let foo = async () => {
     await myBus.sendAndWait('hello');
     console.log('Blocking listeners have all finished running now.');
-    console.log('Nonblocking listeners have not run yet.');
+    console.log('Nonblocking listeners have not run yet,');
+    console.log(' and will run with setImmediate.');
 }
 ```
 
@@ -261,11 +262,11 @@ When multiple listeners have been added to a single channel, they run in the ord
 
 ## When exactly do callbacks run?
 
-For `sendLater` they are launched on `process.nextTick`, nonblockingly.
+For `sendLater` they are launched with `setImmediate`, nonblockingly.  This gives the browser event loop time to do other stuff.
 
-For `sendAndWait`, they are launched synchronously and then awaited using `Promise.all(promises).finally()`.  This means that synchronous callbacks will run inline, blockingly, and async callbacks will be awaited.
+For `sendAndWait`, they are launched synchronously and then awaited using `Promise.all(promises).finally()`.  This means that synchronous callbacks will run inline, blockingly, and async callbacks will be awaited in parallel.
 
-If you call `sendAndWait` without awaiting it, the synchronous callbacks should still be run blockingly and will complete before `sendAndWait` exits.  The async callbacks will not be awaited; but I think the parts of those functions before the first `await` will be run blockingly.  TODO: test this more carefully.
+If you accidentally call `sendAndWait` without awaiting it (don't do this), the synchronous callbacks should still be run blockingly and will complete before `sendAndWait` exits.  The async callbacks will not be awaited; but I think the parts of those functions before the first `await` will be run blockingly.  TODO: test this more carefully.
 
 ## Can callback invocations be coalesced or debounced?
 

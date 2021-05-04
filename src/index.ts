@@ -42,7 +42,7 @@ interface CallbackAndOpts<Ch> extends SuperbusOpts {
 //     await sendAndWait('hello');
 // 
 // For any other combination, it will run in nonblocking mode.  The
-// listeners will be launched on nextTick and sendLater will immediately
+// listeners will be launched with setImmediate and sendLater will immediately
 // continue.
 // 
 //     // blocking listener but nonblocking sender
@@ -164,7 +164,7 @@ export class Superbus<Ch extends string> {
         // or reject before returning from this function.
         // (Those async listener callbacks run in parallel, not series).
 
-        // Nonblocking listeners will be launched on nextTick because
+        // Nonblocking listeners will be launched with setImmediate because
         // we only block if BOTH sender and listener want to.
 
         // A channel gets expanded in order from most to least specific listeners: [changed:12345, changed, *]
@@ -217,7 +217,7 @@ export class Superbus<Ch extends string> {
                     }
                 } else if (mode === 'nonblocking') {
                     // launch nonblocking listeners later
-                    queueMicrotask(() => callback(channel, data));
+                    setImmediate(() => callback(channel, data));
                 }
             }
             // wait for all the promises to finish
@@ -233,7 +233,7 @@ export class Superbus<Ch extends string> {
         }
     }
     sendLater(channel: Ch, data?: any): void {
-        // Defer sending the message to the next tick.
+        // Defer sending the message using setImmediate.
         // Launch all the callbacks then, and don't wait for any of them to finish.
         // This function will immediately return before any callback code runs.
         //
@@ -249,7 +249,7 @@ export class Superbus<Ch extends string> {
                     this._unsub(channel, cbAndOpt);
                 }
                 const { callback } = cbAndOpt;
-                queueMicrotask(() => callback(channel, data));
+                setImmediate(() => callback(channel, data));
             }
         }
     }
