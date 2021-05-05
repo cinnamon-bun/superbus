@@ -28,6 +28,7 @@ t.test('bus: type inference for * channels', async (t: any) => {
     bus.on('*', (channel) => {});  // but we can still subscribe to '*'.
 
     // this should be a type error on the '*'
+    // since you can't send to '*'
     //await bus.sendAndWait('*');
 
     t.done();
@@ -38,7 +39,7 @@ t.test('bus: basics', async (t: any) => {
 
     let logs: string[] = [];
     bus.on('open', (channel) => { logs.push('a-'+channel); });
-    let unsub = bus.on('close', (channel) => { logs.push('b-'+channel); });
+    let unsubB = bus.on('close', (channel) => { logs.push('b-'+channel); });
 
     logs.push('-start');
 
@@ -50,7 +51,7 @@ t.test('bus: basics', async (t: any) => {
     t.same(logs, '-start a-open b-close -end'.split(' '), 'logs in order');
 
     logs = [];
-    unsub();
+    unsubB();
     await bus.sendAndWait('open');
     await bus.sendAndWait('close');
     bus.removeAllSubscriptions();
@@ -81,9 +82,9 @@ t.test('bus: once', async (t: any) => {
     await bus.sendAndWait('open');
 
 
-    //// a runs first because it's blocking
-    //// b hasn't run yet because it's waiting for setImmediate
-    //t.same(logs, '-start a-open -end'.split(' '), 'logs in order, callback was only called once, only blocking callback happened so far');
+    // a runs first because it's blocking
+    // b hasn't run yet because it's waiting for setTimeout
+    t.same(logs, '-start a-open'.split(' '), 'logs in order, callback was only called once, only blocking callback happened so far');
 
     // give time for setImmediate things to happen
     await sleep(20);
@@ -278,8 +279,7 @@ t.test('bus: sendAndWait', async (t: any) => {
     t.done();
 });
 
-t.skip('bus: sendLater', async (t: any) => {
-    // SKIPPED because this changes every time with the new setImmed function
+t.test('bus: sendLater', async (t: any) => {
     let bus = new Superbus();
 
     let logs = [];
@@ -372,8 +372,7 @@ t.test('bus: mix of sync and async callbacks', async (t: any) => {
 //================================================================================
 // blocking and nonblocking callbacks
 
-t.skip('bus: mix of blocking and nonblocking callbacks', async (t: any) => {
-    // SKIPPED because this changes every time with the new setImmed function
+t.test('bus: mix of blocking and nonblocking callbacks', async (t: any) => {
     let bus = new Superbus();
     let logs: string[] = [];
 

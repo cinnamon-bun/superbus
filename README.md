@@ -6,8 +6,8 @@ You can send **messages** to **channels**, and each message can have a data payl
 
 ## Vocabulary 
 
-* listen, subscribe: same meaning -- hook up a callback to run when an event is sent.
-* `setImmediate` -- everywhere we mention this function we actually use a frankenstein version that works in browsers and node: 10% of the time it uses `setTimeout(cb, 0)` and 90% of the time it uses `queueMicrotask` (e.g. `process.nextTick`).  This lets us get our work done quickly and still occasionally give the browser or node event loop a chance to do some other things.
+* listen, subscribe -- same meaning -- hook up a callback to run when an event is sent.
+* listener, subscriber -- same meaning -- the callback that was registered
 
 ## Feature: channel specificity
 
@@ -30,7 +30,7 @@ Example: sending to `deleted:abc` will trigger listeners for:
 
 Senders and listeners can choose to be in "blocking mode".  If both are in blocking mode, then sending a message will block until all the listeners have finished running, even if they are async callbacks.
 
-If either the sender or the listener are in nonblocking mode, the listener callbacks will run with `setImmediate`.
+If either the sender or the listener are in nonblocking mode, the listener callbacks will run with `setTimeout`.
 
 > Why this blocking thing?
 >
@@ -115,13 +115,13 @@ The `data` argument is optional.
 
 ## Sending nonblockingly
 
-`sendLater` sends your message with `setImmediate` or the browser equivalent:
+`sendLater` sends your message with `setTimeout`:
 
 ```ts
 let foo = () => {
     myBus.sendLater('hello');
     console.log('The listeners have not run yet.');
-    console.log('They will run later when setImmediate fires.');
+    console.log('They will run later when setTimeout fires.');
 }
 ```
 
@@ -129,14 +129,14 @@ let foo = () => {
 
 `sendAndWait` runs the blocking listener callbacks right away and waits for them all to finish, even the async ones.  Make sure to `await` it.
 
-The listeners that were registered as `nonblocking` will be run nonblockingly with `setImmediate`.  Only when the sender AND the listener want to block, will the blocking behaviour occur.
+The listeners that were registered as `nonblocking` will be run nonblockingly with `setTimeout`.  Only when the sender AND the listener want to block, will the blocking behaviour occur.
 
 ```ts
 let foo = async () => {
     await myBus.sendAndWait('hello');
     console.log('Blocking listeners have all finished running now.');
     console.log('Nonblocking listeners have not run yet,');
-    console.log(' and will run with setImmediate.');
+    console.log(' and will run with setTimeout.');
 }
 ```
 
@@ -277,7 +277,7 @@ These are functions with `{ mode: 'nonblocking' }` OR when an event is sent usin
 
 These functions might be either sync or async.
 
-These functions are run using `setImmediate`, so they are executed outside of our regular scope.  We can't get their errors and do anything with them.  They're off on their own now.
+These functions are run using `setTimeout`, so they are executed outside of our regular scope.  We can't get their errors and do anything with them.  They're off on their own now.
 
 Errors thrown by these listener functions will become unhandled exceptions (for sync functions) or unhandled rejections (for async functions).
 
@@ -307,7 +307,7 @@ When multiple listeners have been added to a single channel, they run in the ord
 
 ## When exactly do callbacks run?
 
-For `sendLater` they are launched with `setImmediate`, nonblockingly.  This gives the browser event loop time to do other stuff.
+For `sendLater` they are launched with `setTimeout`, nonblockingly.  This gives the browser event loop time to do other stuff.
 
 For `sendAndWait`, they are launched synchronously and then awaited using `Promise.all(promises).finally()`.  This means that synchronous callbacks will run inline, blockingly, and async callbacks will be awaited in parallel.
 
