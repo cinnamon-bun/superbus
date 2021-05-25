@@ -3,7 +3,7 @@ import t = require('tap');
 
 import {
     Superbus,
-} from '../index';
+} from '../superbus';
     
 //================================================================================ 
 // UTILS
