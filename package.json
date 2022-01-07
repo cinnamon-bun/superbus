@@ -10,7 +10,7 @@
     "url": "git+ssh://git@github.com/cinnamon-bun/superbus.git"
   },
   "main": "./build/index.js",
-  "types": "./build/index.d.js",
+  "types": "./build/index.d.ts",
   "scripts": {
     "clean": "rm -rf build coverage .nyc_output",
     "build": "tsc",
