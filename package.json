@@ -1,6 +1,6 @@
 {
   "name": "superbus",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A message bus with a few tricks up its sleeve",
   "author": "Cinnamon <cinnamon_bun_github@fastmail.com>",
   "homepage": "https://github.com/cinnamon-bun/superbus",
