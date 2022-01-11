@@ -228,7 +228,7 @@ export class Superbus<Ch extends string> {
                         }
                     } catch (err) {
                         log(`${busdebug} error while launching blocking callback`);
-                        errors.push(err);
+                        errors.push(err as Error);
                     }
                 } else if (mode === 'nonblocking') {
                     // launch nonblocking listeners later

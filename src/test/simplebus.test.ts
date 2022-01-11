@@ -96,7 +96,7 @@ t.test('simplebus error handling', async (t: any) => {
         await bus.send('1');
         t.ok(false, 'callback error was not thrown??');
     } catch (err) {
-        t.same(err.message, 'oops', 'callback error was caught');
+        t.same((err as Error).message, 'oops', 'callback error was caught');
     }
 
     logs.push('-end');

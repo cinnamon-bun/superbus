@@ -14,9 +14,9 @@
   "scripts": {
     "clean": "rm -rf build coverage .nyc_output",
     "build": "tsc",
-    "test": "tap -Rspecy --jobs=1 build/test/*.test.js",
-    "test-simplebus": "tap -Rspecy --jobs=1 build/test/simplebus.test.js",
-    "test-superbus": "tap -Rspecy --jobs=1 build/test/superbus.test.js",
+    "test": "tap -Rspec --jobs=1 build/test/*.test.js",
+    "test-simplebus": "tap -Rspec --jobs=1 build/test/simplebus.test.js",
+    "test-superbus": "tap -Rspec --jobs=1 build/test/superbus.test.js",
     "watch-test": "onchange -i src/*.ts src/test/*.ts -- yarn build-and-test",
     "test-coverage": "yarn test -- --coverage-report=lcov",
     "clean-build": "yarn clean && yarn build",
@@ -26,15 +26,12 @@
   },
   "devDependencies": {
     "@types/tap": "^14.10.3",
-    "doctoc": "^2.0.0",
+    "doctoc": "^2.1.0",
     "onchange": "^7.1.0",
     "tap": "^14.11.0",
-    "typescript": "^4.1.4"
-  },
-  "resolutions": {
-    "typescript": "^4.1.4"
+    "typescript": "~4.5.4"
   },
   "dependencies": {
-    "concurrency-friends": "^5.0.1"
+    "concurrency-friends": "^5.2.0"
   }
 }
